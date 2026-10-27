@@ -1,8 +1,20 @@
-import * as pdfjs from 'pdfjs-dist'
-import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
+import workerUrl from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url'
 import { parseLines } from './lib.js'
 
-pdfjs.GlobalWorkerOptions.workerSrc = workerUrl
+// Carga diferida de la versión "legacy" (compatible con Safari antiguo): si falla,
+// la app igualmente abre y sólo se ve el error al leer un PDF.
+async function loadPdfjs() {
+  if (!Promise.withResolvers) {
+    Promise.withResolvers = function () {
+      let resolve, reject
+      const promise = new Promise((a, b) => { resolve = a; reject = b })
+      return { promise, resolve, reject }
+    }
+  }
+  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
+  pdfjs.GlobalWorkerOptions.workerSrc = workerUrl
+  return pdfjs
+}
 
 /** Agrupa los fragmentos de texto de una página en filas (misma coordenada Y). */
 function pageToLines(items) {
@@ -26,6 +38,7 @@ function pageToLines(items) {
 }
 
 export async function extractProducts(file, onProgress) {
+  const pdfjs = await loadPdfjs()
   const data = new Uint8Array(await file.arrayBuffer())
   const pdf = await pdfjs.getDocument({ data }).promise
   const lines = []

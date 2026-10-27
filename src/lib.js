@@ -3,15 +3,17 @@
 // Formatos admitidos: X-XX-XX-XXXX  o  XXX-XX-XXXX (dígitos o letras mayúsculas).
 const SEG = '[0-9A-Z]'
 const build = (dash) =>
-  `(?<![0-9A-Za-z-])(?:${[
+  `(?:${[
     [1, 2, 2, 4],
     [3, 2, 4],
   ]
     .map((g) => g.map((n) => `${SEG}{${n}}`).join(dash))
-    .join('|')})(?![0-9A-Za-z-])`
+    .join('|')})`
 const CODE_SRC = build('-')
 // Tolera espacios alrededor de los guiones, frecuentes al extraer texto de PDF.
 const SPACED_SRC = build('\\s*-\\s*')
+// Sin lookbehind (Safari < 16.4 no lo soporta): el carácter previo se captura en el grupo 1.
+const FIND_SRC = `(^|[^0-9A-Za-z-])(${SPACED_SRC})(?![0-9A-Za-z-])`
 
 export const normalizeCode = (c) => c.replace(/\s+/g, '').toUpperCase()
 
@@ -30,20 +32,21 @@ export function parseLines(lines) {
     if (!prev || nombre.length > prev.nombre.length) found.set(codigo, { codigo, nombre })
   }
   lines.forEach((line, i) => {
-    const re = new RegExp(SPACED_SRC, 'g')
+    const re = new RegExp(FIND_SRC, 'g')
     const hits = [...line.matchAll(re)]
     if (!hits.length) return
     hits.forEach((m, k) => {
-      const end = m.index + m[0].length
+      const start = m.index + m[1].length
+      const end = start + m[2].length
       const next = hits[k + 1]?.index ?? line.length
       let nombre = cleanName(line.slice(end, next))
       // Código al final de la fila: el nombre suele estar antes.
-      if (!nombre && hits.length === 1) nombre = cleanName(line.slice(0, m.index))
+      if (!nombre && hits.length === 1) nombre = cleanName(line.slice(0, start))
       // Nombre en la línea siguiente (sin código).
-      if (!nombre && lines[i + 1] && !new RegExp(SPACED_SRC).test(lines[i + 1])) {
+      if (!nombre && lines[i + 1] && !new RegExp(FIND_SRC).test(lines[i + 1])) {
         nombre = cleanName(lines[i + 1])
       }
-      add(normalizeCode(m[0]), nombre)
+      add(normalizeCode(m[2]), nombre)
     })
   })
   return [...found.values()].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))

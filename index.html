@@ -10,6 +10,13 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // Si algo falla antes de que React pinte, mostrar el error en vez de una página en blanco.
+      window.addEventListener('error', function (e) {
+        var r = document.getElementById('root')
+        if (r && !r.children.length) r.innerHTML = '<pre style="padding:16px;white-space:pre-wrap;font:14px monospace">Error al iniciar la app:\n' + (e.message || e) + '</pre>'
+      })
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
