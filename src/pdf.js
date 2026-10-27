@@ -1,17 +1,11 @@
 // ?worker => Vite lo empaqueta como .js (los .mjs no siempre se sirven con MIME válido).
-import PdfWorker from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?worker'
+import './polyfills.js'
+import PdfWorker from './pdf.worker.js?worker'
 import { parseLines } from './lib.js'
 
 // Carga diferida de la versión "legacy" (compatible con Safari antiguo): si falla,
 // la app igualmente abre y sólo se ve el error al leer un PDF.
 async function loadPdfjs() {
-  if (!Promise.withResolvers) {
-    Promise.withResolvers = function () {
-      let resolve, reject
-      const promise = new Promise((a, b) => { resolve = a; reject = b })
-      return { promise, resolve, reject }
-    }
-  }
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
   if (!pdfjs.GlobalWorkerOptions.workerPort) pdfjs.GlobalWorkerOptions.workerPort = new PdfWorker()
   return pdfjs
