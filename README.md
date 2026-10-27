@@ -10,3 +10,7 @@ npm test         # parser de códigos, búsqueda y cálculo de empaque
 ```
 
 **Reglas de Firestore:** la app no usa autenticación; define reglas acordes (p. ej. restringir a `presentaciones/{id}`) o añade Firebase Auth antes de producción.
+
+## Despliegue (GitHub Pages)
+Cada push a `master` construye y publica con `.github/workflows/deploy.yml` en `https://<usuario>.github.io/cajas/`.
+Una sola vez: **Settings → Pages → Source: GitHub Actions**.
