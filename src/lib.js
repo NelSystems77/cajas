@@ -88,15 +88,32 @@ export const plural = (n, unidad) => {
   return n === 1 ? u : /[aeiou]$/.test(u) ? `${u}s` : `${u}es`
 }
 
-/** Unidades totales de una caja grande (o de la caja pequeña si no hay caja grande). */
-export function factorEmpaqueTotal({ unidadesPorCajaMenor, tieneCajaMaster, unidadesPorCajaMaster }) {
-  return tieneCajaMaster ? Number(unidadesPorCajaMaster) || 0 : Number(unidadesPorCajaMenor) || 0
+// Cómo viene empacado el producto.
+export const EMPAQUES = {
+  pequena: 'pequena', // sólo caja pequeña
+  ambas: 'ambas', // cajas pequeñas dentro de una caja grande
+  grande: 'grande', // sólo caja grande (sin caja pequeña), p. ej. jarabes, frascos
+}
+const FORMAS_SOLO_GRANDE = ['Jarabe', 'Suspensión', 'Solución', 'Frasco', 'Botella', 'Gotas']
+export const empaqueSugerido = (forma) => (FORMAS_SOLO_GRANDE.includes(forma) ? EMPAQUES.grande : EMPAQUES.pequena)
+
+export const usaCajaPequena = (f) => f.empaque !== EMPAQUES.grande
+export const usaCajaGrande = (f) => f.empaque !== EMPAQUES.pequena
+
+const FEMENINAS = ['tableta', 'cápsula', 'ampolla', 'botella', 'jeringa']
+/** "Cuántas"/"Cuántos" según el género de la unidad. */
+export const cuantas = (unidad) => (!unidad || FEMENINAS.includes(unidad.toLowerCase()) ? 'Cuántas' : 'Cuántos')
+
+/** Unidades totales de la caja más grande que maneja el producto. */
+export function factorEmpaqueTotal(f) {
+  return usaCajaGrande(f) ? Number(f.unidadesPorCajaMaster) || 0 : Number(f.unidadesPorCajaMenor) || 0
 }
 
 /** Cajas pequeñas que caben en la grande (puede no ser entero). */
-export function cajasPequenasEnGrande({ unidadesPorCajaMenor, unidadesPorCajaMaster }) {
-  const m = Number(unidadesPorCajaMenor)
-  const g = Number(unidadesPorCajaMaster)
+export function cajasPequenasEnGrande(f) {
+  if (f.empaque !== EMPAQUES.ambas) return 0
+  const m = Number(f.unidadesPorCajaMenor)
+  const g = Number(f.unidadesPorCajaMaster)
   return m > 0 && g > 0 ? g / m : 0
 }
 
@@ -106,10 +123,11 @@ export function validate(f) {
   if (!f.forma) e.forma = 'Selecciona la forma farmacéutica'
   if (!f.unidad) e.unidad = 'Selecciona la unidad'
   const isInt = (v) => Number.isInteger(Number(v)) && Number(v) >= 1
-  if (!isInt(f.unidadesPorCajaMenor)) e.unidadesPorCajaMenor = 'Ingresa un número entero de 1 o más'
-  if (f.tieneCajaMaster) {
-    if (!isInt(f.unidadesPorCajaMaster)) e.unidadesPorCajaMaster = 'Ingresa un número entero de 1 o más'
-    else if (isInt(f.unidadesPorCajaMenor) && Number(f.unidadesPorCajaMaster) < Number(f.unidadesPorCajaMenor))
+  const msg = 'Ingresa un número entero de 1 o más'
+  if (usaCajaPequena(f) && !isInt(f.unidadesPorCajaMenor)) e.unidadesPorCajaMenor = msg
+  if (usaCajaGrande(f)) {
+    if (!isInt(f.unidadesPorCajaMaster)) e.unidadesPorCajaMaster = msg
+    else if (f.empaque === EMPAQUES.ambas && isInt(f.unidadesPorCajaMenor) && Number(f.unidadesPorCajaMaster) < Number(f.unidadesPorCajaMenor))
       e.unidadesPorCajaMaster = 'La caja grande debe tener igual o más que la pequeña'
   }
   return e
@@ -117,16 +135,18 @@ export function validate(f) {
 
 /** Documento de Firestore según el esquema propuesto. */
 export function toDoc(codigo, f) {
-  const cajas = f.tieneCajaMaster ? cajasPequenasEnGrande(f) : 0
+  const cajas = cajasPequenasEnGrande(f)
   return {
     id_presentacion: codigo,
     codigo,
     nombre_comercial: f.nombre.trim(),
     forma_farmaceutica: f.forma,
     unidad_dispensa: f.unidad,
-    unidades_por_caja_menor: Number(f.unidadesPorCajaMenor),
-    tiene_caja_master: !!f.tieneCajaMaster,
-    unidades_por_caja_master: f.tieneCajaMaster ? Number(f.unidadesPorCajaMaster) : null,
+    tipo_empaque: f.empaque,
+    tiene_caja_menor: usaCajaPequena(f),
+    unidades_por_caja_menor: usaCajaPequena(f) ? Number(f.unidadesPorCajaMenor) : null,
+    tiene_caja_master: usaCajaGrande(f),
+    unidades_por_caja_master: usaCajaGrande(f) ? Number(f.unidadesPorCajaMaster) : null,
     // Sólo si la caja grande contiene un número exacto de cajas pequeñas.
     cajas_por_caja_master: Number.isInteger(cajas) && cajas > 0 ? cajas : null,
     factor_empaque_total: factorEmpaqueTotal(f),
@@ -135,12 +155,13 @@ export function toDoc(codigo, f) {
 
 export function fromDoc(d) {
   const master = d.unidades_por_caja_master ?? (d.cajas_por_caja_master ? d.cajas_por_caja_master * d.unidades_por_caja_menor : '')
+  const empaque = d.tipo_empaque ?? (d.tiene_caja_master ? EMPAQUES.ambas : EMPAQUES.pequena)
   return {
     nombre: d.nombre_comercial ?? '',
     forma: d.forma_farmaceutica ?? '',
     unidad: d.unidad_dispensa ?? '',
+    empaque,
     unidadesPorCajaMenor: d.unidades_por_caja_menor ?? '',
-    tieneCajaMaster: !!d.tiene_caja_master,
     unidadesPorCajaMaster: master,
   }
 }

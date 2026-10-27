@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { parseLines, searchProducts, factorEmpaqueTotal, cajasPequenasEnGrande, isValidCode, validate, toDoc } from '../src/lib.js'
+import { parseLines, searchProducts, factorEmpaqueTotal, cajasPequenasEnGrande, isValidCode, validate, toDoc, empaqueSugerido } from '../src/lib.js'
 
 test('detecta ambos formatos de código', () => {
   assert.ok(isValidCode('1-05-12-3456'))
@@ -35,15 +35,24 @@ test('búsqueda por código parcial/sin guiones y por nombre sin acentos', () =>
   assert.equal(searchProducts(p, 'para').length, 1)
 })
 
-test('factor de empaque y cajas pequeñas por grande', () => {
-  assert.equal(factorEmpaqueTotal({ unidadesPorCajaMenor: 30, tieneCajaMaster: true, unidadesPorCajaMaster: 300 }), 300)
-  assert.equal(factorEmpaqueTotal({ unidadesPorCajaMenor: 30, tieneCajaMaster: false, unidadesPorCajaMaster: 300 }), 30)
-  assert.equal(cajasPequenasEnGrande({ unidadesPorCajaMenor: 30, unidadesPorCajaMaster: 300 }), 10)
-  const base = { nombre: 'a', forma: 'x', unidad: 'z', unidadesPorCajaMenor: 28, tieneCajaMaster: true }
-  assert.ok(validate({ ...base, unidadesPorCajaMaster: 20 }).unidadesPorCajaMaster)
-  assert.deepEqual(validate({ ...base, unidadesPorCajaMaster: 200 }), {})
-  assert.equal(toDoc('1-10-04-0045', { ...base, unidadesPorCajaMaster: 280 }).cajas_por_caja_master, 10)
-  assert.equal(toDoc('1-10-04-0045', { ...base, unidadesPorCajaMaster: 200 }).cajas_por_caja_master, null)
+test('factor de empaque según tipo de empaque', () => {
+  const f = (o) => ({ nombre: 'a', forma: 'x', unidad: 'z', unidadesPorCajaMenor: 30, unidadesPorCajaMaster: 300, ...o })
+  assert.equal(factorEmpaqueTotal(f({ empaque: 'ambas' })), 300)
+  assert.equal(factorEmpaqueTotal(f({ empaque: 'pequena' })), 30)
+  assert.equal(factorEmpaqueTotal(f({ empaque: 'grande', unidadesPorCajaMenor: '' })), 300)
+  assert.equal(cajasPequenasEnGrande(f({ empaque: 'ambas' })), 10)
+  assert.equal(cajasPequenasEnGrande(f({ empaque: 'grande' })), 0)
+  assert.ok(validate(f({ empaque: 'ambas', unidadesPorCajaMaster: 20 })).unidadesPorCajaMaster)
+  assert.deepEqual(validate(f({ empaque: 'grande', unidadesPorCajaMenor: '' })), {})
+  assert.ok(validate(f({ empaque: 'grande', unidadesPorCajaMaster: '' })).unidadesPorCajaMaster)
+  assert.deepEqual(validate(f({ empaque: 'pequena', unidadesPorCajaMaster: '' })), {})
+  const d = toDoc('1-10-46-6006', f({ empaque: 'grande', unidadesPorCajaMenor: '' }))
+  assert.equal(d.unidades_por_caja_menor, null)
+  assert.equal(d.tiene_caja_menor, false)
+  assert.equal(d.factor_empaque_total, 300)
+  assert.equal(toDoc('c', f({ empaque: 'ambas', unidadesPorCajaMaster: 200 })).cajas_por_caja_master, null)
+  assert.equal(empaqueSugerido('Jarabe'), 'grande')
+  assert.equal(empaqueSugerido('Comprimido'), 'pequena')
 })
 
 test('limpia clase y columnas numéricas del reporte', () => {
