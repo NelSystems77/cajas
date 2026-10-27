@@ -1,4 +1,5 @@
-import workerUrl from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url'
+// ?worker => Vite lo empaqueta como .js (los .mjs no siempre se sirven con MIME válido).
+import PdfWorker from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?worker'
 import { parseLines } from './lib.js'
 
 // Carga diferida de la versión "legacy" (compatible con Safari antiguo): si falla,
@@ -12,7 +13,7 @@ async function loadPdfjs() {
     }
   }
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
-  pdfjs.GlobalWorkerOptions.workerSrc = workerUrl
+  if (!pdfjs.GlobalWorkerOptions.workerPort) pdfjs.GlobalWorkerOptions.workerPort = new PdfWorker()
   return pdfjs
 }
 

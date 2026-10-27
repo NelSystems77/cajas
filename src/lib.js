@@ -21,8 +21,12 @@ export function isValidCode(c) {
   return new RegExp(`^${CODE_SRC}$`).test(normalizeCode(c))
 }
 
+// Quita columnas numéricas finales (existencia, cuota, consumo) y la clase inicial (CN, AM…).
 const cleanName = (s) =>
-  s.replace(/^[\s|:;,.\-–—·•]+|[\s|:;,.\-–—·•]+$/g, '').replace(/\s{2,}/g, ' ')
+  s.trim()
+    .replace(/(?:\s+-?\d[\d.,]*)+\s*$/, '')
+    .replace(/^[A-Z]{2}\s+(?=\S{2})/, '')
+    .replace(/^[\s|:;,.\-–—·•]+|[\s|:;,.\-–—·•]+$/g, '').replace(/\s{2,}/g, ' ')
 
 /** Recibe líneas de texto (ya agrupadas por fila) y devuelve [{codigo, nombre}]. */
 export function parseLines(lines) {

@@ -48,8 +48,9 @@ export default function App() {
       setCatalogo(c)
       setQuery('')
       set(KEY, c).catch(() => {})
-    } catch {
-      setError('No se pudo leer el PDF. Verifica que no esté dañado ni protegido con contraseña.')
+    } catch (e) {
+      console.error(e)
+      setError(`No se pudo leer el PDF (${e?.message || e}). Verifica que no esté dañado ni protegido con contraseña.`)
     } finally {
       setProgreso(null)
     }

@@ -40,3 +40,8 @@ test('factor de empaque', () => {
   assert.equal(factorEmpaqueTotal({ unidadesPorCajaMenor: 30, tieneCajaMaster: false, cajasPorCajaMaster: 10 }), 30)
   assert.ok(validate({ nombre: 'a', forma: 'x', concentracion: 'y', unidad: 'z', unidadesPorCajaMenor: 0, tieneCajaMaster: false }).unidadesPorCajaMenor)
 })
+
+test('limpia clase y columnas numéricas del reporte', () => {
+  const r = parseLines(['1-10-16-0010 CN PARACETAMOL 500 MG, TABLETA 128.500 480.000 332.300'])
+  assert.equal(r[0].nombre, 'PARACETAMOL 500 MG, TABLETA')
+})
