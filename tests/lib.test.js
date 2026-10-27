@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { parseLines, searchProducts, factorEmpaqueTotal, isValidCode, validate } from '../src/lib.js'
+import { parseLines, searchProducts, factorEmpaqueTotal, cajasPequenasEnGrande, isValidCode, validate, toDoc } from '../src/lib.js'
 
 test('detecta ambos formatos de código', () => {
   assert.ok(isValidCode('1-05-12-3456'))
@@ -35,10 +35,15 @@ test('búsqueda por código parcial/sin guiones y por nombre sin acentos', () =>
   assert.equal(searchProducts(p, 'para').length, 1)
 })
 
-test('factor de empaque', () => {
-  assert.equal(factorEmpaqueTotal({ unidadesPorCajaMenor: 30, tieneCajaMaster: true, cajasPorCajaMaster: 10 }), 300)
-  assert.equal(factorEmpaqueTotal({ unidadesPorCajaMenor: 30, tieneCajaMaster: false, cajasPorCajaMaster: 10 }), 30)
-  assert.ok(validate({ nombre: 'a', forma: 'x', concentracion: 'y', unidad: 'z', unidadesPorCajaMenor: 0, tieneCajaMaster: false }).unidadesPorCajaMenor)
+test('factor de empaque y cajas pequeñas por grande', () => {
+  assert.equal(factorEmpaqueTotal({ unidadesPorCajaMenor: 30, tieneCajaMaster: true, unidadesPorCajaMaster: 300 }), 300)
+  assert.equal(factorEmpaqueTotal({ unidadesPorCajaMenor: 30, tieneCajaMaster: false, unidadesPorCajaMaster: 300 }), 30)
+  assert.equal(cajasPequenasEnGrande({ unidadesPorCajaMenor: 30, unidadesPorCajaMaster: 300 }), 10)
+  const base = { nombre: 'a', forma: 'x', unidad: 'z', unidadesPorCajaMenor: 28, tieneCajaMaster: true }
+  assert.ok(validate({ ...base, unidadesPorCajaMaster: 20 }).unidadesPorCajaMaster)
+  assert.deepEqual(validate({ ...base, unidadesPorCajaMaster: 200 }), {})
+  assert.equal(toDoc('1-10-04-0045', { ...base, unidadesPorCajaMaster: 280 }).cajas_por_caja_master, 10)
+  assert.equal(toDoc('1-10-04-0045', { ...base, unidadesPorCajaMaster: 200 }).cajas_por_caja_master, null)
 })
 
 test('limpia clase y columnas numéricas del reporte', () => {

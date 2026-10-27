@@ -75,54 +75,72 @@ export function searchProducts(products, query) {
 export const UNIDADES = ['Tableta', 'Cápsula', 'Frasco', 'Sobre', 'Ampolla', 'Inhalador', 'Tubo', 'Vial', 'Parche', 'Supositorio', 'Jeringa']
 export const FORMAS = ['Comprimido', 'Cápsula', 'Jarabe', 'Suspensión', 'Solución', 'Ampolla', 'Inhalador', 'Crema', 'Ungüento', 'Gotas', 'Supositorio', 'Parche', 'Polvo', 'Otro']
 
+// Unidad de dispensa sugerida según la forma farmacéutica (el usuario puede cambiarla).
+const UNIDAD_POR_FORMA = {
+  Comprimido: 'Tableta', Cápsula: 'Cápsula', Jarabe: 'Frasco', Suspensión: 'Frasco', Solución: 'Frasco',
+  Ampolla: 'Ampolla', Inhalador: 'Inhalador', Crema: 'Tubo', Ungüento: 'Tubo', Gotas: 'Frasco',
+  Supositorio: 'Supositorio', Parche: 'Parche', Polvo: 'Sobre',
+}
+export const unidadSugerida = (forma) => UNIDAD_POR_FORMA[forma] ?? ''
+
 export const plural = (n, unidad) => {
-  const u = unidad.toLowerCase()
+  const u = (unidad || 'unidad').toLowerCase()
   return n === 1 ? u : /[aeiou]$/.test(u) ? `${u}s` : `${u}es`
 }
 
-/** Unidades totales de una caja grande (o de la caja pequeña si no hay embalaje colectivo). */
-export function factorEmpaqueTotal({ unidadesPorCajaMenor, tieneCajaMaster, cajasPorCajaMaster }) {
-  const u = Number(unidadesPorCajaMenor) || 0
-  if (!tieneCajaMaster) return u
-  return u * (Number(cajasPorCajaMaster) || 0)
+/** Unidades totales de una caja grande (o de la caja pequeña si no hay caja grande). */
+export function factorEmpaqueTotal({ unidadesPorCajaMenor, tieneCajaMaster, unidadesPorCajaMaster }) {
+  return tieneCajaMaster ? Number(unidadesPorCajaMaster) || 0 : Number(unidadesPorCajaMenor) || 0
+}
+
+/** Cajas pequeñas que caben en la grande (puede no ser entero). */
+export function cajasPequenasEnGrande({ unidadesPorCajaMenor, unidadesPorCajaMaster }) {
+  const m = Number(unidadesPorCajaMenor)
+  const g = Number(unidadesPorCajaMaster)
+  return m > 0 && g > 0 ? g / m : 0
 }
 
 export function validate(f) {
   const e = {}
   if (!f.nombre.trim()) e.nombre = 'Ingresa el nombre del medicamento'
   if (!f.forma) e.forma = 'Selecciona la forma farmacéutica'
-  if (!f.concentracion.trim()) e.concentracion = 'Ingresa la concentración (ej. 500 mg)'
-  if (!f.unidad) e.unidad = 'Selecciona la unidad mínima'
+  if (!f.unidad) e.unidad = 'Selecciona la unidad'
   const isInt = (v) => Number.isInteger(Number(v)) && Number(v) >= 1
-  if (!isInt(f.unidadesPorCajaMenor)) e.unidadesPorCajaMenor = 'Debe ser un entero de 1 o más'
-  if (f.tieneCajaMaster && !isInt(f.cajasPorCajaMaster)) e.cajasPorCajaMaster = 'Debe ser un entero de 1 o más'
+  if (!isInt(f.unidadesPorCajaMenor)) e.unidadesPorCajaMenor = 'Ingresa un número entero de 1 o más'
+  if (f.tieneCajaMaster) {
+    if (!isInt(f.unidadesPorCajaMaster)) e.unidadesPorCajaMaster = 'Ingresa un número entero de 1 o más'
+    else if (isInt(f.unidadesPorCajaMenor) && Number(f.unidadesPorCajaMaster) < Number(f.unidadesPorCajaMenor))
+      e.unidadesPorCajaMaster = 'La caja grande debe tener igual o más que la pequeña'
+  }
   return e
 }
 
 /** Documento de Firestore según el esquema propuesto. */
 export function toDoc(codigo, f) {
+  const cajas = f.tieneCajaMaster ? cajasPequenasEnGrande(f) : 0
   return {
     id_presentacion: codigo,
     codigo,
     nombre_comercial: f.nombre.trim(),
     forma_farmaceutica: f.forma,
-    concentracion: f.concentracion.trim(),
     unidad_dispensa: f.unidad,
     unidades_por_caja_menor: Number(f.unidadesPorCajaMenor),
     tiene_caja_master: !!f.tieneCajaMaster,
-    cajas_por_caja_master: f.tieneCajaMaster ? Number(f.cajasPorCajaMaster) : null,
+    unidades_por_caja_master: f.tieneCajaMaster ? Number(f.unidadesPorCajaMaster) : null,
+    // Sólo si la caja grande contiene un número exacto de cajas pequeñas.
+    cajas_por_caja_master: Number.isInteger(cajas) && cajas > 0 ? cajas : null,
     factor_empaque_total: factorEmpaqueTotal(f),
   }
 }
 
 export function fromDoc(d) {
+  const master = d.unidades_por_caja_master ?? (d.cajas_por_caja_master ? d.cajas_por_caja_master * d.unidades_por_caja_menor : '')
   return {
     nombre: d.nombre_comercial ?? '',
     forma: d.forma_farmaceutica ?? '',
-    concentracion: d.concentracion ?? '',
     unidad: d.unidad_dispensa ?? '',
     unidadesPorCajaMenor: d.unidades_por_caja_menor ?? '',
     tieneCajaMaster: !!d.tiene_caja_master,
-    cajasPorCajaMaster: d.cajas_por_caja_master ?? '',
+    unidadesPorCajaMaster: master,
   }
 }

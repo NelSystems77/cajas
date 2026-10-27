@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
-import { FORMAS, UNIDADES, plural, factorEmpaqueTotal, validate, toDoc, fromDoc } from '../lib.js'
+import { FORMAS, UNIDADES, plural, unidadSugerida, factorEmpaqueTotal, cajasPequenasEnGrande, validate, toDoc, fromDoc } from '../lib.js'
 import { getPresentacion, savePresentacion } from '../firebase.js'
 
-const VACIO = { forma: '', concentracion: '', unidad: '', unidadesPorCajaMenor: '', tieneCajaMaster: false, cajasPorCajaMaster: '' }
+const VACIO = { forma: '', unidad: '', unidadesPorCajaMenor: '', tieneCajaMaster: false, unidadesPorCajaMaster: '' }
+const CHIPS_PEQUENA = [10, 14, 15, 20, 28, 30, 50, 100]
+const CHIPS_GRANDE = [50, 100, 200, 300, 500, 1000]
 
 function Stepper({ id, value, onChange, error }) {
   const n = Number(value) || 0
@@ -12,6 +14,16 @@ function Stepper({ id, value, onChange, error }) {
       <input id={id} type="number" inputMode="numeric" min="1" step="1" value={value} placeholder="0"
         onChange={(e) => onChange(e.target.value)} onFocus={(e) => e.target.select()} />
       <button type="button" aria-label="Aumentar" onClick={() => onChange(String(n + 1))}>+</button>
+    </div>
+  )
+}
+
+function Chips({ options, value, onChange }) {
+  return (
+    <div className="chips" role="group" aria-label="Valores frecuentes">
+      {options.map((o) => (
+        <button type="button" key={o} className={`chip ${Number(value) === o ? 'on' : ''}`} onClick={() => onChange(String(o))}>{o}</button>
+      ))}
     </div>
   )
 }
@@ -46,7 +58,8 @@ export default function PresentacionForm({ producto, existente, onClose, onSaved
   }, [conflicto, onClose])
 
   const unidades = Number(f.unidadesPorCajaMenor) || 0
-  const cajas = Number(f.cajasPorCajaMaster) || 0
+  const grande = Number(f.unidadesPorCajaMaster) || 0
+  const cajas = cajasPequenasEnGrande(f)
   const total = factorEmpaqueTotal(f)
   const u = f.unidad || 'unidad'
 
@@ -75,8 +88,8 @@ export default function PresentacionForm({ producto, existente, onClose, onSaved
   }
 
   const resumen = (d) =>
-    `${d.unidades_por_caja_menor} ${plural(d.unidades_por_caja_menor, d.unidad_dispensa)} por caja pequeña` +
-    (d.tiene_caja_master ? ` · ${d.cajas_por_caja_master} cajas por caja grande = ${d.factor_empaque_total}` : '')
+    `Caja pequeña: ${d.unidades_por_caja_menor} ${plural(d.unidades_por_caja_menor, d.unidad_dispensa)}` +
+    (d.tiene_caja_master ? ` · Caja grande: ${d.factor_empaque_total}` : ' · Sin caja grande')
 
   return (
     <div className="sheet" role="dialog" aria-modal="true" aria-label="Presentación y empaque">
@@ -93,63 +106,67 @@ export default function PresentacionForm({ producto, existente, onClose, onSaved
 
         <section>
           <h2>Medicamento</h2>
-          <Field label="Nombre / principio activo" htmlFor="nombre" error={errors.nombre}>
-            <input id="nombre" value={f.nombre} onChange={(e) => set('nombre')(e.target.value)} placeholder="Paracetamol" autoComplete="off" />
+          <Field label="Nombre" htmlFor="nombre" error={errors.nombre}>
+            <input id="nombre" value={f.nombre} onChange={(e) => set('nombre')(e.target.value)} placeholder="Ej. Paracetamol 500 mg tabletas" autoComplete="off" />
           </Field>
           <div className="two">
             <Field label="Forma farmacéutica" htmlFor="forma" error={errors.forma}>
-              <select id="forma" value={f.forma} onChange={(e) => set('forma')(e.target.value)}>
+              <select id="forma" value={f.forma} onChange={(e) => setF((s) => ({ ...s, forma: e.target.value, unidad: unidadSugerida(e.target.value) || s.unidad }))}>
                 <option value="">Seleccionar…</option>
                 {FORMAS.map((x) => <option key={x}>{x}</option>)}
               </select>
             </Field>
-            <Field label="Concentración" htmlFor="concentracion" error={errors.concentracion}>
-              <input id="concentracion" value={f.concentracion} onChange={(e) => set('concentracion')(e.target.value)} placeholder="500 mg" autoComplete="off" />
+            <Field label="Se cuenta por" htmlFor="unidad" error={errors.unidad}>
+              <select id="unidad" value={f.unidad} onChange={(e) => set('unidad')(e.target.value)}>
+                <option value="">Seleccionar…</option>
+                {UNIDADES.map((x) => <option key={x}>{x}</option>)}
+              </select>
             </Field>
           </div>
-          <Field label="Unidad mínima de dispensa" htmlFor="unidad" error={errors.unidad}>
-            <select id="unidad" value={f.unidad} onChange={(e) => set('unidad')(e.target.value)}>
-              <option value="">Seleccionar…</option>
-              {UNIDADES.map((x) => <option key={x}>{x}</option>)}
-            </select>
+        </section>
+
+        <section className="box small">
+          <h2><span aria-hidden="true">📦</span> Caja pequeña</h2>
+          <p className="explain">La caja individual del medicamento, la que normalmente recibe el paciente.</p>
+          <Field label={`¿Cuántas ${plural(2, u)} trae UNA caja pequeña?`} htmlFor="unidadesPorCajaMenor" error={errors.unidadesPorCajaMenor}>
+            <Stepper id="unidadesPorCajaMenor" value={f.unidadesPorCajaMenor} onChange={set('unidadesPorCajaMenor')} error={errors.unidadesPorCajaMenor} />
+            <Chips options={CHIPS_PEQUENA} value={f.unidadesPorCajaMenor} onChange={set('unidadesPorCajaMenor')} />
           </Field>
         </section>
 
-        <section>
-          <h2>Empaque</h2>
-          <Field label={`1 · ${plural(2, u)} por caja pequeña (comercial)`} htmlFor="unidadesPorCajaMenor"
-            hint="Total que contiene una sola caja comercial. Ej. 30" error={errors.unidadesPorCajaMenor}>
-            <Stepper id="unidadesPorCajaMenor" value={f.unidadesPorCajaMenor} onChange={set('unidadesPorCajaMenor')} error={errors.unidadesPorCajaMenor} />
-          </Field>
-
+        <section className="box big">
+          <h2><span aria-hidden="true">📦📦</span> Caja grande</h2>
+          <p className="explain">La caja de bodega que agrupa varias cajas pequeñas.</p>
           <label className="switch">
             <input type="checkbox" checked={f.tieneCajaMaster} onChange={(e) => set('tieneCajaMaster')(e.target.checked)} />
             <span className="track" aria-hidden="true" />
-            <span>¿Maneja caja grande (embalaje colectivo)?</span>
+            <span>{f.tieneCajaMaster ? 'Sí, viene en caja grande' : 'No viene en caja grande'}</span>
           </label>
-
           {f.tieneCajaMaster && (
-            <Field label="2 · Cajas pequeñas dentro de la caja grande" htmlFor="cajasPorCajaMaster"
-              hint="Cuántas cajitas comerciales trae la caja mayor. Ej. 10" error={errors.cajasPorCajaMaster}>
-              <Stepper id="cajasPorCajaMaster" value={f.cajasPorCajaMaster} onChange={set('cajasPorCajaMaster')} error={errors.cajasPorCajaMaster} />
+            <Field label={`¿Cuántas ${plural(2, u)} trae en total UNA caja grande?`} htmlFor="unidadesPorCajaMaster"
+              hint={`Cuenta todas las ${plural(2, u)}, no las cajas pequeñas.`} error={errors.unidadesPorCajaMaster}>
+              <Stepper id="unidadesPorCajaMaster" value={f.unidadesPorCajaMaster} onChange={set('unidadesPorCajaMaster')} error={errors.unidadesPorCajaMaster} />
+              <Chips options={CHIPS_GRANDE} value={f.unidadesPorCajaMaster} onChange={set('unidadesPorCajaMaster')} />
             </Field>
           )}
         </section>
 
         <section className={`summary ${total ? 'live' : ''}`} aria-live="polite">
           <h2>Resumen</h2>
-          {total ? (
-            <>
-              <div className="big-num">{total.toLocaleString('es')}<small> {plural(total, u)}</small></div>
-              <ul>
-                <li>1 caja pequeña = <b>{unidades}</b> {plural(unidades, u)}</li>
-                {f.tieneCajaMaster && cajas > 0 && (
-                  <li>1 caja grande = <b>{cajas}</b> {cajas === 1 ? 'caja pequeña' : 'cajas pequeñas'} = <b>{total.toLocaleString('es')}</b> {plural(total, u)}</li>
-                )}
-              </ul>
-            </>
+          {unidades ? (
+            <ul>
+              <li>📦 1 caja pequeña = <b>{unidades.toLocaleString('es')}</b> {plural(unidades, u)}</li>
+              {f.tieneCajaMaster && grande > 0 && (
+                <li>📦📦 1 caja grande = <b>{grande.toLocaleString('es')}</b> {plural(grande, u)}
+                  {cajas >= 1 && <> ≈ <b>{Number.isInteger(cajas) ? cajas : cajas.toFixed(1)}</b> {cajas === 1 ? 'caja pequeña' : 'cajas pequeñas'}</>}
+                </li>
+              )}
+            </ul>
           ) : (
-            <p className="sub">Completa las cantidades para ver el cálculo.</p>
+            <p className="sub">Ingresa las cantidades para ver el resumen.</p>
+          )}
+          {f.tieneCajaMaster && cajas >= 1 && !Number.isInteger(cajas) && (
+            <p className="warn">La caja grande no equivale a un número exacto de cajas pequeñas. Verifica las cantidades.</p>
           )}
         </section>
 

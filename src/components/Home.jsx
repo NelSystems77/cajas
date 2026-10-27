@@ -43,7 +43,7 @@ export default function Home({ catalogo, resultados, query, setQuery, presentaci
                 <span className="name">{p.nombre || 'Sin nombre'}</span>
                 {pres ? (
                   <span className="badge ok">✓ {pres.unidades_por_caja_menor}
-                    {pres.tiene_caja_master ? ` × ${pres.cajas_por_caja_master}` : ''}</span>
+                    {pres.tiene_caja_master ? ` · ${pres.factor_empaque_total}` : ''}</span>
                 ) : (
                   <span className="badge">Pendiente</span>
                 )}
