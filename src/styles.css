@@ -92,3 +92,9 @@ section h2{font-size:.8rem;text-transform:uppercase;letter-spacing:.06em;color:v
 .opt.on{border-color:var(--pri);background:color-mix(in srgb,var(--pri) 10%,transparent)}
 .opt:has(input:focus-visible){outline:3px solid color-mix(in srgb,var(--pri) 45%,transparent);outline-offset:2px}
 .opt .ico{white-space:nowrap;font-size:1.1rem}
+
+.tabs{display:flex;gap:6px;margin-top:10px;background:var(--line);padding:4px;border-radius:12px}
+.tab{flex:1;border:0;background:transparent;border-radius:9px;min-height:40px;font-weight:600;font-size:.85rem;color:var(--mut);cursor:pointer;white-space:nowrap}
+.tab span{font-weight:700;opacity:.8;margin-left:2px}
+.tab.on{background:var(--card);color:var(--ink);box-shadow:0 1px 3px #0003}
+.tab:focus-visible{outline:3px solid color-mix(in srgb,var(--pri) 45%,transparent)}
