@@ -72,14 +72,14 @@ export function searchProducts(products, query) {
   })
 }
 
-export const UNIDADES = ['Tableta', 'Cápsula', 'Frasco', 'Sobre', 'Ampolla', 'Inhalador', 'Tubo', 'Vial', 'Parche', 'Supositorio', 'Jeringa']
-export const FORMAS = ['Comprimido', 'Cápsula', 'Jarabe', 'Suspensión', 'Solución', 'Ampolla', 'Inhalador', 'Crema', 'Ungüento', 'Gotas', 'Supositorio', 'Parche', 'Polvo', 'Otro']
+export const UNIDADES = ['Tableta', 'Cápsula', 'Frasco', 'Sobre', 'Ampolla', 'Inhalador', 'Tubo', 'Vial', 'Parche', 'Supositorio', 'Jeringa', 'Botella']
+export const FORMAS = ['Comprimido', 'Cápsula', 'Jarabe', 'Suspensión', 'Solución', 'Ampolla', 'Inhalador', 'Crema', 'Ungüento', 'Gotas', 'Frasco', 'Botella', 'Supositorio', 'Parche', 'Polvo', 'Otro']
 
 // Unidad de dispensa sugerida según la forma farmacéutica (el usuario puede cambiarla).
 const UNIDAD_POR_FORMA = {
   Comprimido: 'Tableta', Cápsula: 'Cápsula', Jarabe: 'Frasco', Suspensión: 'Frasco', Solución: 'Frasco',
   Ampolla: 'Ampolla', Inhalador: 'Inhalador', Crema: 'Tubo', Ungüento: 'Tubo', Gotas: 'Frasco',
-  Supositorio: 'Supositorio', Parche: 'Parche', Polvo: 'Sobre',
+  Frasco: 'Frasco', Botella: 'Botella', Supositorio: 'Supositorio', Parche: 'Parche', Polvo: 'Sobre',
 }
 export const unidadSugerida = (forma) => UNIDAD_POR_FORMA[forma] ?? ''
 
